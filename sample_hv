@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sample_ev.py
+sample_hv.py
 Author: Timothy Middlemas
 
 Script to sample H_V(r) by binning nearest neighbors
