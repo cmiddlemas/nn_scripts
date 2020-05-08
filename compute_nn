@@ -187,7 +187,7 @@ if __name__ == "__main__":
     # Compute uncertainty in g, assuming all uncertainty comes from h
     # I think this works because we can think of the computation
     # as computed a binning uncertainty over a subset of the total
-    # data, could test if worried about this rational by
+    # data, could test if worried about this reasoning by
     # implementing full covariance estimation for h and e
     g_unc = bin_size * h_unc / (e * rho_s1_dr)
 
