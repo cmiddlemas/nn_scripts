@@ -17,7 +17,7 @@ Usage: compute_nn [infiles ...] > [outfile]
 Will interpret multiple infiles as ensemble average
 
 Outputs the following table on stdout, space separated
-r bin_size H_V unc_H_V E_V unc_E_V G_V unc_G_V
+bin_center bin_size H_V unc_H_V E_V unc_E_V G_V unc_G_V
 
 Uncertainties given as std err of mean, with each binned configuration
 serving as an ''independent'' data point
@@ -26,7 +26,8 @@ Options:
     -h, --help -> Print this message
     -n [bins] -> number of bins (default: 50)
     -c [cutoff] -> cutoff for sampling (default: 1.0)
-    -s [samples] -> number of sample points per configuration (default: 1000)
+    -s [samples] -> number of sample points per configuration for void
+                    quantities (default: 1000)
     -p -> Compute particle quantities instead of void
 """
 
@@ -34,9 +35,11 @@ import sys
 import numpy as np
 from scipy.spatial import cKDTree
 
+# Volume of the fundamental cell passed as a matrix
 def basis_vol(basis):
     return np.linalg.det(basis)
 
+# Volume of sphere of radius r in dimension dim
 def sphere_vol(dim, r):
     if dim == 1:
         return 2*r
@@ -78,15 +81,17 @@ if __name__ == "__main__":
     n_ensemble = len(sys.argv) # number of configurations in ensemble
     input_paths = sys.argv[1:]
 
-    # Compute domain
+    # Compute bin locations and widths
     bin_size = cutoff/float(n_bins)
     bin_boundaries = np.linspace(0.0, cutoff, num=n_bins+1)
     right_bin_boundaries = bin_boundaries[1:]
     left_bin_boundaries = bin_boundaries[:-1]
     bin_centers = right_bin_boundaries - bin_size/2.0
-    h = np.zeros(n_bins) # accumulator for h function (nearest neighbor count)
+
+    # Initialize accumulators
+    h = np.zeros(n_bins) # Nearest neighbor function
     h_unc = np.zeros(n_bins)
-    e = np.zeros(n_bins)
+    e = np.zeros(n_bins) # Complementary cumulative function
     e_unc = np.zeros(n_bins)
     density = 0.0
 
@@ -115,58 +120,78 @@ if __name__ == "__main__":
                 periodic[i*n_points:(i+1)*n_points, :] += a*basis[j, :]
         
         # Handles efficient nearest-neighbor lookup
-        tree = cKDTree(periodic)
+        # https://stackoverflow.com/questions/31819778/scipy-spatial-ckdtree-running-slowly
+        tree = cKDTree(periodic, balanced_tree=False, compact_nodes=False)
 
         if compute_particle:
-            break
+            samples = points
+            n_samples = n_points
+
+            # Generate nn distances, k=2 because we
+            # always get the point itself as first match
+            dd, ii = tree.query(samples, k=2, n_jobs=-1,
+                    distance_upper_bound=cutoff)
+            nn_dist = dd[:,1]
         else: # compute the void nearest neighbor functions
             # Choose spatial points to sample randomly
             samples = np.random.rand(n_samples, dim) @ basis
 
-            # Bin samples
+            # Generate nn distances
             dd, ii = tree.query(samples, k=1, n_jobs=-1,
                     distance_upper_bound=cutoff)
-            tiled_right = np.tile(right_bin_boundaries, (n_samples, 1))
-            tiled_left = np.tile(left_bin_boundaries, (n_samples, 1))
-            tiled_center = np.tile(bin_centers, (n_samples, 1))
-            # https://stackoverflow.com/questions/17428621/python-differentiating-between-row-and-column-vectors
-            bin_lt_right = np.less(dd[:, np.newaxis], tiled_right, dtype=float)
-            bin_gte_left = np.greater_equal(dd[:, np.newaxis], tiled_left, dtype=float)
-            bin_gte_center = np.greater_equal(dd[:, np.newaxis], tiled_center, dtype=float)
+            nn_dist = dd
+        
+        # Bin samples
+        tiled_right = np.tile(right_bin_boundaries, (n_samples, 1))
+        tiled_left = np.tile(left_bin_boundaries, (n_samples, 1))
+        tiled_center = np.tile(bin_centers, (n_samples, 1))
+        # https://stackoverflow.com/questions/17428621/python-differentiating-between-row-and-column-vectors
+        bin_lt_right = np.less(nn_dist[:, np.newaxis], tiled_right, dtype=float)
+        bin_gte_left = np.greater_equal(nn_dist[:, np.newaxis], tiled_left, dtype=float)
+        bin_gte_center = np.greater_equal(nn_dist[:, np.newaxis], tiled_center, dtype=float)
             
-            # Use bin values to update accumulators
-            # For each sample, add nn to correct bin
-            h_count = np.sum(bin_lt_right*bin_gte_left, axis=0)
-            h += h_count
-            h_unc += h_count*h_count
-            # For each sample, keep track of counts greater than each bin center
-            e_count = np.sum(bin_gte_center, axis=0)
-            e += e_count
-            e_unc += e_count*e_count
+        # Use bin values to update accumulators
+        # For each sample, add nn to correct bin
+        h_count = np.sum(bin_lt_right*bin_gte_left, axis=0)
+        h += h_count
+        h_unc += h_count*h_count
+        # For each sample, keep track of counts greater than each bin center
+        e_count = np.sum(bin_gte_center, axis=0)
+        e += e_count
+        e_unc += e_count*e_count
 
-    # Normalize h and e functions
+    # Normalize h, e and density
     h /= float(n_samples*n_ensemble)*bin_size 
     e /= float(n_samples*n_ensemble)
     density /= float(n_ensemble)
-    # Compute uncertainties in h and e
+
+    # Compute uncertainties in h and e, sample std err
     h_unc /= (float(n_samples)*bin_size) ** 2.0
     h_unc = (h_unc - float(n_ensemble)*h*h)/float(n_ensemble - 1)
     h_unc = np.sqrt(h_unc/float(n_ensemble))
     e_unc /= float(n_samples) ** 2.0
     e_unc = (e_unc - float(n_ensemble)*h*h)/float(n_ensemble - 1)
     e_unc = np.sqrt(h_unc/float(n_ensemble))
+    
     # Compute g function
     g = h*bin_size
     g /= e 
     rho_s1_dr = density*(sphere_vol(dim, right_bin_boundaries) - sphere_vol(dim,
         left_bin_boundaries))
     g /= rho_s1_dr
+    
     # Compute uncertainty in g, assuming h and e are independent (not actually
-    # true, but hopefuly good enough
+    # Not using because h and e are highly correlated
     # g_unc = bin_size * np.sqrt( h_unc*h_unc/(e*e) + h*h*e_unc*e_unc/(e*e*e*e) ) / rho_s1_dr
+
     # Compute uncertainty in g, assuming all uncertainty comes from h
+    # I think this works because we can think of the computation
+    # as computed a binning uncertainty over a subset of the total
+    # data, could test if worried about this rational by
+    # implementing full covariance estimation for h and e
     g_unc = bin_size * h_unc / (e * rho_s1_dr)
 
+    # Save output to stdout
     np.savetxt(sys.stdout.buffer,
             np.stack([bin_centers, np.full(n_bins,bin_size), h, h_unc, e, e_unc,
                 g, g_unc], -1)
