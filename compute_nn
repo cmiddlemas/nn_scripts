@@ -201,7 +201,8 @@ if __name__ == "__main__":
     g /= rho_s1_dr
     
     # Compute uncertainty in g, assuming h and e are independent (not actually
-    # Not using because h and e are highly correlated
+    # Not using because it allows for error bars extending past zero,
+    # and looks qualitatively similar to below method elsewhere
     # g_unc = bin_size * np.sqrt( h_unc*h_unc/(e*e) + h*h*e_unc*e_unc/(e*e*e*e) ) / rho_s1_dr
 
     # Compute uncertainty in g, assuming all uncertainty comes from h
