@@ -89,7 +89,7 @@ if __name__ == "__main__":
         sys.argv.remove("-p")
         compute_particle = True
     
-    n_ensemble = len(sys.argv) # number of configurations in ensemble
+    n_ensemble = len(sys.argv) - 1 # number of configurations in ensemble
     input_paths = sys.argv[1:]
 
     # Compute bin locations and widths
@@ -190,8 +190,8 @@ if __name__ == "__main__":
     h_unc = (h_unc - float(n_ensemble)*h*h)/float(n_ensemble - 1)
     h_unc = np.sqrt(h_unc/float(n_ensemble))
     e_unc /= float(n_samples) ** 2.0
-    e_unc = (e_unc - float(n_ensemble)*h*h)/float(n_ensemble - 1)
-    e_unc = np.sqrt(h_unc/float(n_ensemble))
+    e_unc = (e_unc - float(n_ensemble)*e*e)/float(n_ensemble - 1)
+    e_unc = np.sqrt(e_unc/float(n_ensemble))
     
     # Compute g function
     g = h*bin_size
