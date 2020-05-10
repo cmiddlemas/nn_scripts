@@ -178,6 +178,8 @@ if __name__ == "__main__":
         e += e_count
         e_unc += e_count*e_count
 
+    # Use the full number of samples for normalization
+    n_samples = n_samples*n_cycles
     # Normalize h, e and density
     h /= float(n_samples*n_ensemble)*bin_size 
     e /= float(n_samples*n_ensemble)
