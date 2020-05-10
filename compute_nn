@@ -28,6 +28,12 @@ Options:
     -c [cutoff] -> cutoff for sampling (default: 1.0)
     -s [samples] -> number of sample points per configuration for void
                     quantities (default: 1000)
+    --cycles [cycles] -> number of times to repeat samples on a single
+                         configuration, use if -s [samples] would
+                         create arrays too large for your ram.
+                         do not use for particle quanties, will
+                         lead to wrong error bars
+                         (default: 1)
     -p -> Compute particle quantities instead of void
 """
 
@@ -56,6 +62,7 @@ if __name__ == "__main__":
     n_bins = 50
     cutoff = 1.0
     n_samples = 1000
+    n_cycles = 1
     compute_particle = False
 
     if "--help" in sys.argv or "-h" in sys.argv:
@@ -74,6 +81,10 @@ if __name__ == "__main__":
         idx = sys.argv.index("-s")
         sys.argv.pop(idx)
         n_samples = int(sys.argv.pop(idx))
+    if "--cycles" in sys.argv:
+        idx = sys.argv.index("--cycles")
+        sys.argv.pop(idx)
+        n_cycles = int(sys.argv.pop(idx))
     if "-p" in sys.argv:
         sys.argv.remove("-p")
         compute_particle = True
@@ -96,7 +107,7 @@ if __name__ == "__main__":
     density = 0.0
 
     dim = 0
-    for m, path in enumerate(input_paths):
+    for m, path in enumerate(input_paths): # Loop over configurations
         if m%100 == 0:
             # https://stackoverflow.com/questions/5574702/how-to-print-to-stderr-in-python
             print("Working on file " + str(m), file=sys.stderr)
@@ -123,40 +134,47 @@ if __name__ == "__main__":
         # https://stackoverflow.com/questions/31819778/scipy-spatial-ckdtree-running-slowly
         tree = cKDTree(periodic, balanced_tree=False, compact_nodes=False)
 
-        if compute_particle:
-            samples = points
-            n_samples = n_points
+        h_count = np.zeros(n_bins)
+        e_count = np.zeros(n_bins)
+        # Possibly repeat sampling due to memory limitations
+        for _ in range(n_cycles):
+            if compute_particle:
+                samples = points
+                n_samples = n_points
 
-            # Generate nn distances, k=2 because we
-            # always get the point itself as first match
-            dd, ii = tree.query(samples, k=2, n_jobs=-1,
-                    distance_upper_bound=cutoff)
-            nn_dist = dd[:,1]
-        else: # compute the void nearest neighbor functions
-            # Choose spatial points to sample randomly
-            samples = np.random.rand(n_samples, dim) @ basis
+                # Generate nn distances, k=2 because we
+                # always get the point itself as first match
+                dd, ii = tree.query(samples, k=2, n_jobs=-1,
+                        distance_upper_bound=cutoff)
+                nn_dist = dd[:,1]
+            else: # compute the void nearest neighbor functions
+                # Choose spatial points to sample randomly
+                samples = np.random.rand(n_samples, dim) @ basis
 
-            # Generate nn distances
-            dd, ii = tree.query(samples, k=1, n_jobs=-1,
-                    distance_upper_bound=cutoff)
-            nn_dist = dd
-        
-        # Bin samples
-        tiled_right = np.tile(right_bin_boundaries, (n_samples, 1))
-        tiled_left = np.tile(left_bin_boundaries, (n_samples, 1))
-        tiled_center = np.tile(bin_centers, (n_samples, 1))
-        # https://stackoverflow.com/questions/17428621/python-differentiating-between-row-and-column-vectors
-        bin_lt_right = np.less(nn_dist[:, np.newaxis], tiled_right, dtype=float)
-        bin_gte_left = np.greater_equal(nn_dist[:, np.newaxis], tiled_left, dtype=float)
-        bin_gte_center = np.greater_equal(nn_dist[:, np.newaxis], tiled_center, dtype=float)
+                # Generate nn distances
+                dd, ii = tree.query(samples, k=1, n_jobs=-1,
+                        distance_upper_bound=cutoff)
+                nn_dist = dd
             
-        # Use bin values to update accumulators
-        # For each sample, add nn to correct bin
-        h_count = np.sum(bin_lt_right*bin_gte_left, axis=0)
+            # Bin samples
+            tiled_right = np.tile(right_bin_boundaries, (n_samples, 1))
+            tiled_left = np.tile(left_bin_boundaries, (n_samples, 1))
+            tiled_center = np.tile(bin_centers, (n_samples, 1))
+            # https://stackoverflow.com/questions/17428621/python-differentiating-between-row-and-column-vectors
+            bin_lt_right = np.less(nn_dist[:, np.newaxis], tiled_right, dtype=float)
+            bin_gte_left = np.greater_equal(nn_dist[:, np.newaxis], tiled_left, dtype=float)
+            bin_gte_center = np.greater_equal(nn_dist[:, np.newaxis], tiled_center, dtype=float)
+                
+            # Use bin values to update accumulators
+            # For each sample, add nn to correct bin
+            h_count += np.sum(bin_lt_right*bin_gte_left, axis=0)
+            # For each sample, keep track of counts greater than each bin center
+            e_count += np.sum(bin_gte_center, axis=0)
+        
+        # Update h, e, and uncertainties with count from all the cycles,
+        # assuming each configuration gives an independent data point
         h += h_count
         h_unc += h_count*h_count
-        # For each sample, keep track of counts greater than each bin center
-        e_count = np.sum(bin_gte_center, axis=0)
         e += e_count
         e_unc += e_count*e_count
 
