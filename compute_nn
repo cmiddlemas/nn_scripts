@@ -16,11 +16,49 @@ Usage: compute_nn [infiles ...] > [outfile]
 
 Will interpret multiple infiles as ensemble average
 
-Outputs the following table on stdout, space separated
-bin_center bin_size H_V unc_H_V E_V unc_E_V G_V unc_G_V
+Outputs a table on stdout, as space separated columns
+The meaning of each column is as follows
+1 bin_center
+2 bin_size
+3 count_E_V
+4 H_V
+5 unc_H_V
+6 E_V
+7 unc_E_V
+8 G_V
+9 unc_G_V
+10 var_G_V
+11 unc2_G_V
+12 ratio_G_V
+13 unc_ratio_G_V
 
-Uncertainties given as std err of mean, with each binned configuration
-serving as an ''independent'' data point
+Most of these are self explanator. count_E_V gives
+the raw counts for E_V determination, so that one can easily
+make a rough cutoff based on requiring a small number of samples
+to have good statistics
+
+Uncertainties for H_V and E_V given as std err of mean, with each binned
+configuration serving as an ''independent'' data point
+
+Uncertainty for G_V is little more complicated. There
+are two ways of computing G_V, one whic is <H>/<E> and
+one which is <H/E>. The "normal" G_V is the former,
+while the "ratio" G_V is the latter.
+
+We estimate the variance in G_V through a non-linear
+error propagation using the H-E covariance matrix.
+Sometimes this method is bad, since H and E can become
+highly correlated in the tail, leading to 0s (and nans if
+there is floating point error). Thus, we report, in addition
+to the uncertainty, the variance (i.e. before the square root)
+and the uncertainty estimated by assuming the value of E is perfect
+(unc2_G_V) for comparison. This lets one be confident that any nans that
+arise are due simply to floating point error.
+
+Estimating the uncertainty in unc_ratio_G_V is done by
+the std err of the mean, but it is worth noting that
+we only compute ratio_G_V for those bins where for
+every configuration, G_V is not nan.
 
 Options:
     -h, --help -> Print this message
@@ -104,6 +142,7 @@ if __name__ == "__main__":
     h_unc = np.zeros(n_bins)
     e = np.zeros(n_bins) # Complementary cumulative function
     e_unc = np.zeros(n_bins)
+    he_cov = np.zeros(n_bins)
     g_ratio = np.zeros(n_bins)
     g_ratio_unc = np.zeros(n_bins)
     density = 0.0
@@ -179,10 +218,13 @@ if __name__ == "__main__":
         h_unc += h_count*h_count
         e += e_count
         e_unc += e_count*e_count
+        he_cov += h_count*e_count
         g_ratio_count = h_count/e_count
         g_ratio += g_ratio_count
         g_ratio_unc += g_ratio_count*g_ratio_count
 
+    # Save the raw final count of e for interpretation purposes
+    e_final_count = np.copy(e)
     # Use the full number of samples for normalization
     n_samples = n_samples*n_cycles
     # Normalize h, e and density
@@ -201,6 +243,13 @@ if __name__ == "__main__":
     e_unc /= float(n_samples) ** 2.0
     e_unc = (e_unc - float(n_ensemble)*e*e)/float(n_ensemble - 1)
     e_unc = np.sqrt(e_unc/float(n_ensemble))
+    # Compute covariance of h and e, with mean correction
+    # https://stats.stackexchange.com/questions/163583/covariance-of-two-sample-means
+    # https://stats.stackexchange.com/questions/142456/why-shouldnt-the-denominator-of-the-covariance-estimator-be-n-2-rather-than-n-1/142472#142472
+    save_raw = np.copy(he_cov)
+    he_cov /= bin_size*(float(n_samples) ** 2.0)
+    he_cov = (he_cov - float(n_ensemble)*h*e)/float(n_ensemble - 1)
+    he_cov /= float(n_ensemble)
 
     # Compute uncertainty in g_ratio
     g_ratio_unc /= rho_s1_dr ** 2.0
@@ -215,18 +264,37 @@ if __name__ == "__main__":
     
     # Compute uncertainty in g, assuming h and e are independent (not actually
     # Not using because it allows for error bars extending past zero,
-    # and looks qualitatively similar to below method elsewhere
-    # g_unc = bin_size * np.sqrt( h_unc*h_unc/(e*e) + h*h*e_unc*e_unc/(e*e*e*e) ) / rho_s1_dr
+    # and looks qualitatively similar to below methods elsewhere
+    # g_unc_3 = bin_size * np.sqrt( h_unc*h_unc/(e*e) + h*h*e_unc*e_unc/(e*e*e*e) ) / rho_s1_dr
 
     # Compute uncertainty in g, assuming all uncertainty comes from h
-    # I think this works because we can think of the computation
-    # as computed a binning uncertainty over a subset of the total
-    # data, could test if worried about this reasoning by
-    # implementing full covariance estimation for h and e
-    g_unc = bin_size * h_unc / (e * rho_s1_dr)
+    # This is a backup estimator, since sometimes the full covariance
+    # estimate becomes degenerate in the tail
+    g_unc_ind_h = bin_size * h_unc / (e * rho_s1_dr)
+    
+    # Compute uncertainty in g through full covariance analysis
+    # Print out variance as well, just in case a cancellation happens
+    # and we get a nan, we can verify that the most likely cause is
+    # simply floating point error on the cancellation
+    g_var = ((bin_size / rho_s1_dr) ** 2.0) * (
+                h_unc*h_unc/(e*e) + h*h*e_unc*e_unc/(e*e*e*e) - 2*h*he_cov/(e*e*e)
+                )
+    g_unc = np.sqrt(g_var)
 
     # Save output to stdout
     np.savetxt(sys.stdout.buffer,
-            np.stack([bin_centers, np.full(n_bins,bin_size), h, h_unc, e, e_unc,
-                g, g_unc, g_ratio, g_ratio_unc], -1)
+            np.stack([
+                bin_centers,
+                np.full(n_bins, bin_size),
+                e_final_count,
+                h,
+                h_unc,
+                e,
+                e_unc,
+                g,
+                g_unc,
+                g_var,
+                g_unc_ind_h,
+                g_ratio,
+                g_ratio_unc], -1)
             )
