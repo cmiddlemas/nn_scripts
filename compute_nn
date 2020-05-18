@@ -155,7 +155,7 @@ if __name__ == "__main__":
         # Read necessary stuff from file
         infile = open(path)
         dim = int(infile.readline())
-        basis = np.loadtxt(infile, max_rows=dim)[:, :dim]
+        basis = np.atleast_2d(np.loadtxt(infile, max_rows=dim))[:, :dim]
         # https://stackoverflow.com/questions/31698242/python-how-can-i-force-1-element-numpy-arrays-to-be-two-dimensional
         points = np.atleast_2d(np.loadtxt(infile))[:, :dim]
         n_points = len(points)
@@ -177,6 +177,8 @@ if __name__ == "__main__":
 
         h_count = np.zeros(n_bins)
         e_count = np.zeros(n_bins)
+        # Uncomment to also compute e based on left boundary of each bin
+        # e_left_count = np.zeros(n_bins)
         # Possibly repeat sampling due to memory limitations
         for _ in range(n_cycles):
             if compute_particle:
@@ -211,6 +213,7 @@ if __name__ == "__main__":
             h_count += np.sum(bin_lt_right*bin_gte_left, axis=0)
             # For each sample, keep track of counts greater than each bin center
             e_count += np.sum(bin_gte_center, axis=0)
+            # e_left_count += np.sum(bin_gte_left, axis=0)
         
         # Update h, e, and uncertainties with count from all the cycles,
         # assuming each configuration gives an independent data point
@@ -219,7 +222,10 @@ if __name__ == "__main__":
         e += e_count
         e_unc += e_count*e_count
         he_cov += h_count*e_count
+        # Use center of bin
         g_ratio_count = h_count/e_count
+        # Use lower limit of bin
+        # g_ratio_count = h_count/e_left_count
         g_ratio += g_ratio_count
         g_ratio_unc += g_ratio_count*g_ratio_count
 
