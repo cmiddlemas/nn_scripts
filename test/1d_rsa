@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""
+gen_poisson
+
+Makes a N = [n_points], L = 1 ensemble
+Give phi
+
+Usage:
+    1d_rsa [n_points] [phi] [outfile_root] <seedfile>
+
+Seed file is optional
+
+Don't include extension on outfile, do include on seed file
+
+Flags:
+    --help -> print this message
+"""
+import sys
+import random
+import os
+
+def internal_from_real(t_remaining_space):
+    total_remaining_space = 0.0
+    for interval in t_remaining_space:
+        total_remaining_space += interval[1] - interval[0]
+    i_remaining_space = []
+    left_boundary = 0.0
+    for interval in t_remaining_space:
+        i_length = interval[1] - interval[0]
+        right_boundary = left_boundary + i_length/total_remaining_space
+        i_remaining_space += [(left_boundary, right_boundary)]
+        left_boundary = right_boundary
+    return i_remaining_space
+
+def binary_search(i_coord, i_remaining_space):
+    num_intervals = len(i_remaining_space)
+    low_idx = 0
+    high_idx = num_intervals
+    current_idx = num_intervals//2
+    while True:
+        interval = i_remaining_space[current_idx]
+        if i_coord >= interval[0] and i_coord < interval[1]:
+            return current_idx, interval
+        elif high_idx == low_idx:
+            print("Warning: Didn't find match, returning current interval \
+                    {} out of {}".format(current_idx, num_intervals-1),
+                    file=sys.stderr)
+            return current_idx, interval
+        else:
+            if i_coord >= interval[0]: # Bisect upper
+                low_idx = current_idx
+                current_idx = (high_idx + current_idx + 1)//2
+            elif i_coord < interval[1]: # Bisect lower
+                high_idx = current_idx
+                current_idx = (current_idx + low_idx)//2
+            else:
+                print("Error, shouldn't be possible.", file=sys.stderr)
+                sys.exit(-1)
+
+def map_to_real_coord(i_coord, i_remaining_space,
+        t_remaining_space, D):
+
+    i, i_interval = binary_search(i_coord, i_remaining_space)
+            
+    i_interval_length = i_interval[1] - i_interval[0]
+            
+    i_interval_coord = (i_coord - i_interval[0])/(i_interval_length)
+            
+    t_interval = t_remaining_space[i]
+    
+    t_coord = t_interval[0] + i_interval_coord*(t_interval[1] - t_interval[0])
+    
+    t_remaining_space.pop(i)
+    total_t_space = 0.0
+    if t_coord + D < t_interval[1]:
+        t_split_upper = (t_coord + D, t_interval[1])
+        t_remaining_space.insert(i, t_split_upper)
+    if t_coord - D > t_interval[0]:
+        t_split_lower = (t_interval[0], t_coord - D)
+        t_remaining_space.insert(i, t_split_lower)
+
+    i_remaining_space = internal_from_real(t_remaining_space)
+
+    return t_coord, i_remaining_space, t_remaining_space
+
+# Script began in packing_spectral as gen_poisson.py
+if __name__=="__main__":
+    if "--help" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
+        
+    dim = 1
+    n_points = int(sys.argv[1])
+    phi = float(sys.argv[2])
+    outfile_root = sys.argv[3]
+    outfile = open(outfile_root + ".dat","w")
+    # Idea for reading and writing file as binary comes from
+    # Multiple sources convincing that it is a good solution, plus
+    # https://stackoverflow.com/questions/6787233/python-how-to-read-bytes-from-file-and-save-it
+    # for help with how to do it
+    if len(sys.argv) == 5:
+        seedfile = open(sys.argv[4],"rb")
+        seed = seedfile.read()
+        seedfile.close()
+    else:
+        seed = os.urandom(32)
+        print(seed)
+        seedfile = open(outfile_root + "_seed.binary", "wb")
+        seedfile.write(seed)
+        seedfile.close()
+    random.seed(seed)
+
+    # Compute disk diameter
+    D = phi/(n_points)
+    print(D)
+    
+    # Write header
+    outfile.write(str(dim) + "\n")
+    for i in range(dim):
+        for j in range(4):
+            if i == j:
+                outfile.write(str(1.0))
+            else:
+                outfile.write(str(0.0))
+            if j < 3:
+                outfile.write(" ")
+        outfile.write("\n")
+
+    # Generate RSA
+    # Keep the list of points, an index into
+    # the uncovered spaced that is always normalized
+    # so sum of intervals = 1
+    # and a map to the true space
+    # Start with one particle at origin always
+    # To make pbc easier to handle
+    points = [0.0]
+    internal_remaining_space = [(0, 1.0)]
+    true_remaining_space = [(D, 1.0-D)]
+    for i in range(1, n_points):
+        # print(i)
+        internal_coord = random.uniform(0.0, 1.0)
+        new, internal_remaining_space, true_remaining_space = map_to_real_coord(
+                internal_coord,
+                internal_remaining_space,
+                true_remaining_space,
+                D)
+        points += [new]
+    
+    # Naive method
+    #while len(points) < n_points:
+    #    new = random.uniform(0.0, L)
+    #    should_add = True
+    #    for existing in points:
+    #        if abs(new-existing) < D:
+    #            should_add = False
+    #            break
+    #        elif abs(new-existing+L) < D:
+    #            should_add = False
+    #            break
+    #        elif abs(new-existing-L) < D:
+    #            should_add = False
+    #            break
+    #    if should_add:
+    #        points += [new]
+    #        print(len(points))
+
+    for point in points:
+        outfile.write("{} 0.0 0.0 0.0\n".format(point))
+
+    outfile.close()

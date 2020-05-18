@@ -1,0 +1,12 @@
+Here's a list of things we'd like to see the project get:
+
+BUGS
+
+TESTING
+    Add in hard sphere results.
+    Maybe compute reduced chi^2 to test uncertainty calculations?
+    Add more lattice tests.
+
+NEW FEATURES
+    Allow for smarter binning than equal size.
+    Add in block averaging analysis.

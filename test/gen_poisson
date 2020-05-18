@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""
+gen_poisson
+
+Makes a rho = 1 poisson point pattern
+with N points
+
+Usage:
+    gen_poisson [dim] [n_points] [outfile_root] <seedfile>
+
+Seed file is optional
+
+Don't include extension on outfile, do include on seed file
+
+Flags:
+    --help -> print this message
+"""
+import sys
+import random
+import os
+
+# Script began in packing_spectral as gen_poisson.py
+if __name__=="__main__":
+    if "--help" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
+        
+    dim = int(sys.argv[1])
+    # https://stackoverflow.com/questions/5574702/how-to-print-to-stderr-in-python
+    if dim > 4:
+        print("Cannot handle dimensions over 4", file=sys.stderr)
+        sys.exit(1)
+    n_points = int(sys.argv[2])
+    outfile_root = sys.argv[3]
+    outfile = open(outfile_root + ".dat","w")
+    # Idea for reading and writing file as binary comes from
+    # Multiple sources convincing that it is a good solution, plus
+    # https://stackoverflow.com/questions/6787233/python-how-to-read-bytes-from-file-and-save-it
+    # for help with how to do it
+    if len(sys.argv) == 5:
+        seedfile = open(sys.argv[4],"rb")
+        seed = seedfile.read()
+        seedfile.close()
+    else:
+        seed = os.urandom(32)
+        print(seed)
+        seedfile = open(outfile_root + "_seed.binary", "wb")
+        seedfile.write(seed)
+        seedfile.close()
+    random.seed(seed)
+
+    # Compute box size for rho = 1
+    box_size = float(n_points)**(1.0/float(dim))
+    
+    outfile.write(str(dim) + "\n")
+
+    for i in range(dim):
+        for j in range(4):
+            if i == j:
+                outfile.write(str(box_size))
+            else:
+                outfile.write(str(0.0))
+            if j < 3:
+                outfile.write(" ")
+        outfile.write("\n")
+
+    for i in range(n_points):
+        for j in range(4):
+            if j < dim:
+                coord = random.uniform(0.0, box_size);
+            else:
+                coord = 0.0
+            if j < 3:
+                outfile.write(str(coord) + " ")
+            else:
+                outfile.write(str(coord) + "\n")
+        
+    outfile.close()
