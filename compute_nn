@@ -20,17 +20,18 @@ Outputs a table on stdout, as space separated columns
 The meaning of each column is as follows
 1 bin_center
 2 bin_size
-3 count_E_V
-4 H_V
-5 unc_H_V
-6 E_V
-7 unc_E_V
-8 G_V
-9 unc_G_V
-10 var_G_V
-11 unc2_G_V
-12 ratio_G_V
-13 unc_ratio_G_V
+3 count_H_V
+4 count_E_V
+5 H_V
+6 unc_H_V
+7 E_V
+8 unc_E_V
+9 G_V
+10 unc_G_V
+11 var_G_V
+12 unc2_G_V
+13 ratio_G_V
+14 unc_ratio_G_V
 
 Most of these are self explanator. count_E_V gives
 the raw counts for E_V determination, so that one can easily
@@ -72,6 +73,16 @@ Options:
                          do not use for particle quanties, will
                          lead to wrong error bars
                          (default: 1)
+    -b [block] [block_file] -> Also do a post-division
+                               averaging of G_V(r), combining
+                               [block] data points into one
+                               and output this analysis into
+                               the [block_file]. uses same
+                               format as stdout output, but only prints
+                               columns 1, 9, 10, and 2, in that order.
+                               Propagates uncertainty
+                               by standard addition formula, assuming independence
+                               of each spatial point.
     -p -> Compute particle quantities instead of void
 """
 
@@ -101,6 +112,7 @@ if __name__ == "__main__":
     cutoff = 1.0
     n_samples = 1000
     n_cycles = 1
+    use_blocks = False
     compute_particle = False
 
     if "--help" in sys.argv or "-h" in sys.argv:
@@ -123,6 +135,12 @@ if __name__ == "__main__":
         idx = sys.argv.index("--cycles")
         sys.argv.pop(idx)
         n_cycles = int(sys.argv.pop(idx))
+    if "-b" in sys.argv:
+        use_blocks = True
+        idx = sys.argv.index("-b")
+        sys.argv.pop(idx)
+        block_size = int(sys.argv.pop(idx))
+        block_file = open(sys.argv.pop(idx), mode='w')
     if "-p" in sys.argv:
         sys.argv.remove("-p")
         compute_particle = True
@@ -229,7 +247,8 @@ if __name__ == "__main__":
         g_ratio += g_ratio_count
         g_ratio_unc += g_ratio_count*g_ratio_count
 
-    # Save the raw final count of e for interpretation purposes
+    # Save the raw final counts for interpretation purposes
+    h_final_count = np.copy(h)
     e_final_count = np.copy(e)
     # Use the full number of samples for normalization
     n_samples = n_samples*n_cycles
@@ -252,7 +271,6 @@ if __name__ == "__main__":
     # Compute covariance of h and e, with mean correction
     # https://stats.stackexchange.com/questions/163583/covariance-of-two-sample-means
     # https://stats.stackexchange.com/questions/142456/why-shouldnt-the-denominator-of-the-covariance-estimator-be-n-2-rather-than-n-1/142472#142472
-    save_raw = np.copy(he_cov)
     he_cov /= bin_size*(float(n_samples) ** 2.0)
     he_cov = (he_cov - float(n_ensemble)*h*e)/float(n_ensemble - 1)
     he_cov /= float(n_ensemble)
@@ -268,11 +286,6 @@ if __name__ == "__main__":
     g /= e 
     g /= rho_s1_dr
     
-    # Compute uncertainty in g, assuming h and e are independent (not actually
-    # Not using because it allows for error bars extending past zero,
-    # and looks qualitatively similar to below methods elsewhere
-    # g_unc_3 = bin_size * np.sqrt( h_unc*h_unc/(e*e) + h*h*e_unc*e_unc/(e*e*e*e) ) / rho_s1_dr
-
     # Compute uncertainty in g, assuming all uncertainty comes from h
     # This is a backup estimator, since sometimes the full covariance
     # estimate becomes degenerate in the tail
@@ -287,11 +300,37 @@ if __name__ == "__main__":
                 )
     g_unc = np.sqrt(g_var)
 
+    # Do a post-division averaging of g
+    if use_blocks:
+        n_blocks = n_bins//block_size
+        domain_blocks = np.zeros(n_blocks)
+        g_blocks = np.zeros(n_blocks)
+        g_unc_blocks = np.zeros(n_blocks)
+
+        for i in range(n_blocks):
+            g_blocks[i] = np.sum(g[block_size*i:block_size*(i+1)])
+            domain_blocks[i] = np.sum(bin_centers[block_size*i:block_size*(i+1)])
+            g_unc_blocks[i] = np.sqrt(np.sum(g_var[block_size*i:block_size*(i+1)]))
+
+        # Normalize blocks
+        g_blocks /= float(block_size)
+        domain_blocks /= float(block_size)
+        g_unc_blocks /= float(block_size)
+
+        np.savetxt(block_file,
+                np.stack([
+                    domain_blocks,
+                    g_blocks,
+                    g_unc_blocks,
+                    np.full(n_blocks, bin_size*float(block_size))], -1)
+                )
+
     # Save output to stdout
     np.savetxt(sys.stdout.buffer,
             np.stack([
                 bin_centers,
                 np.full(n_bins, bin_size),
+                h_final_count,
                 e_final_count,
                 h,
                 h_unc,
