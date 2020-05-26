@@ -12,6 +12,7 @@ Options:
     -h, --help -> Print this message
     -d [dimension] -> Set dimension of script, default = 3
     -c [cutoff] -> Only use the first [cutoff] data points, default = 10
+    -l [lower_cutoff] -> displace "beginning" of file, default = 0
     -b -> Assume we are given a block file as input
 """
 
@@ -29,12 +30,13 @@ def sphere_vol(dim, r):
         print("Dimension not implemented", file=sys.stderr)
         sys.exit(-1)
 
-def g_finite_size(djm, r):
+def g_finite_size(dim, r):
     return 10000.0/(10000.0 - sphere_vol(dim, r))
 
 if __name__ == "__main__":
     dim = 3
     cutoff = 10
+    lower_cutoff = 0
     is_block = False
     if "-h" in sys.argv or "--help" in sys.argv:
         print(__doc__)
@@ -47,21 +49,25 @@ if __name__ == "__main__":
         idx = sys.argv.index("-c")
         sys.argv.pop(idx)
         cutoff = int(sys.argv.pop(idx))
+    if "-l" in sys.argv:
+        idx = sys.argv.index("-l")
+        sys.argv.pop(idx)
+        lower_cutoff = int(sys.argv.pop(idx))
     if "-b" in sys.argv:
         is_block = True
         sys.argv.remove("-b")
-
+    
     infile = open(sys.argv[1])
 
     indata = np.loadtxt(infile)
 
-    domain = indata[:cutoff,0]
+    domain = indata[lower_cutoff:lower_cutoff+cutoff,0]
     if is_block:
-        g = indata[:cutoff,1]
-        g_unc = indata[:cutoff,2]
+        g = indata[lower_cutoff:lower_cutoff+cutoff,1]
+        g_unc = indata[lower_cutoff:lower_cutoff+cutoff,2]
     else:
-        g = indata[:cutoff,8]
-        g_unc = indata[:cutoff,9]
+        g = indata[lower_cutoff:lower_cutoff+cutoff,8]
+        g_unc = indata[lower_cutoff:lower_cutoff+cutoff,9]
 
     g_hat = g - g_finite_size(dim, domain)
     chisq = np.sum(g_hat*g_hat/(g_unc*g_unc))
