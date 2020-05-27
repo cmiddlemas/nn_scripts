@@ -14,6 +14,7 @@ Options:
     -c [cutoff] -> Only use the first [cutoff] data points, default = 10
     -l [lower_cutoff] -> displace "beginning" of file, default = 0
     -b -> Assume we are given a block file as input
+    -i -> Turn of finite size effect estimation
 """
 
 import sys
@@ -38,6 +39,7 @@ if __name__ == "__main__":
     cutoff = 10
     lower_cutoff = 0
     is_block = False
+    assume_infinite = False
     if "-h" in sys.argv or "--help" in sys.argv:
         print(__doc__)
         sys.exit()
@@ -56,6 +58,9 @@ if __name__ == "__main__":
     if "-b" in sys.argv:
         is_block = True
         sys.argv.remove("-b")
+    if "-i" in sys.argv:
+        assume_infinite = True
+        sys.argv.remove("-i")
     
     infile = open(sys.argv[1])
 
@@ -70,6 +75,8 @@ if __name__ == "__main__":
         g_unc = indata[lower_cutoff:lower_cutoff+cutoff,9]
 
     g_hat = g - g_finite_size(dim, domain)
+    if assume_infinite:
+        g_hat = g - 1.0
     chisq = np.sum(g_hat*g_hat/(g_unc*g_unc))
     red_chisq = chisq/float(len(g_hat))
 
