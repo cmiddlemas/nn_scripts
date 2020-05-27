@@ -2,9 +2,6 @@ Author: Timothy Middlemas
 
 A series of scripts to compute nearest-neighbor functions
 
-Use compute_nn, all other scripts are deprecated and may
-contain bugs. I just keep them around for historical reasons.
-
 I heavily used Ge Zhang's C++ code and many previous Torquato
 group papers in designing this code.
 
