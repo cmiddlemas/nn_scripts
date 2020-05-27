@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-poisson_chisq
+poisson_chisq_hv
 
-Does a chisq check on 3D poisson G_V data
+Does a chisq check on 3D poisson H_V data
 
 Assumes N=10000 and rho=1 when computing finite size effect
 
-Usage: poisson_chisq [options] file
+Usage: poisson_chisq_hv [options] file
 
 Options:
     -h, --help -> Print this message
