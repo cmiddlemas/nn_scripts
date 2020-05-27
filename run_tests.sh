@@ -19,13 +19,13 @@ for i in {0..9}; do
     ./gen_square_lat 5 > $TESTDIR/data/config$i.dat
 done
 
-../compute_nn -c 3.0 -n 30 -s 100000 --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/30bin.dat
-../compute_nn -c 3.0 -n 120 -s 100000 --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/120bin.dat
-../compute_nn -c 3.0 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block.dat --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/480bin.dat
-../compute_nn -c 3.0 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block.dat --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/1920bin.dat
+../compute_nn -d 10 $TESTDIR/30bin_drop.dat -c 3.0 -n 30 -s 100000 --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/30bin.dat
+../compute_nn -d 10 $TESTDIR/120bin_drop.dat -c 3.0 -n 120 -s 100000 --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/120bin.dat
+../compute_nn -d 10 $TESTDIR/480bin_drop.dat -c 3.0 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block.dat --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/480bin.dat
+../compute_nn -d 10 $TESTDIR/1920bin_drop.dat -c 3.0 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block.dat --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/1920bin.dat
 
 if [ "$1" = "--full" ]; then
-    ../compute_nn -c 3.0 -n 7680 -s 10000 -b 64 $TESTDIR/7680bin_block.dat --cycles 1000 $TESTDIR/data/config{0..9}.dat > $TESTDIR/7680bin.dat
+    ../compute_nn -d 10 $TESTDIR/7680bin_drop.dat -c 3.0 -n 7680 -s 10000 -b 64 $TESTDIR/7680bin_block.dat --cycles 1000 $TESTDIR/data/config{0..9}.dat > $TESTDIR/7680bin.dat
 fi
 
 echo "finished 2D square lattice tests"
@@ -40,13 +40,13 @@ for i in {0..999}; do
     ./gen_poisson 1 10000 $TESTDIR/data/config$i &> /dev/null
 done
 
-../compute_nn -c 16.08495438637974 -n 30 -s 100000 $TESTDIR/data/config{0..999}.dat > $TESTDIR/30bin.dat
-../compute_nn -c 16.08495438637974 -n 120 -s 100000 -b 4 $TESTDIR/120bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/120bin.dat
-../compute_nn -c 16.08495438637974 -n 480 -s 100000 -b 16 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin.dat
-../compute_nn -c 16.08495438637974 -n 1920 -s 100000 -b 64 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin.dat
+../compute_nn -d 10 $TESTDIR/30bin_drop.dat -c 16.08495438637974 -n 30 -s 100000 $TESTDIR/data/config{0..999}.dat > $TESTDIR/30bin.dat
+../compute_nn -d 10 $TESTDIR/120bin_drop.dat -c 16.08495438637974 -n 120 -s 100000 -b 4 $TESTDIR/120bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/120bin.dat
+../compute_nn -d 10 $TESTDIR/480bin_drop.dat -c 16.08495438637974 -n 480 -s 100000 -b 16 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin.dat
+../compute_nn -d 10 $TESTDIR/1920bin_drop.dat -c 16.08495438637974 -n 1920 -s 100000 -b 64 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin.dat
 
-../compute_nn -c 16.08495438637974 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin2.dat
-../compute_nn -c 16.08495438637974 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin2.dat
+../compute_nn -d 10 $TESTDIR/480bin_drop2.dat -c 16.08495438637974 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin2.dat
+../compute_nn -d 10 $TESTDIR/1920bin_drop2.dat -c 16.08495438637974 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin2.dat
 
 echo "finished 1D poisson tests"
 
@@ -60,13 +60,13 @@ for i in {0..999}; do
     ./gen_poisson 2 10000 $TESTDIR/data/config$i &> /dev/null
 done
 
-../compute_nn -c 4.38178046004133 -n 30 -s 100000 $TESTDIR/data/config{0..999}.dat > $TESTDIR/30bin.dat
-../compute_nn -c 4.38178046004133 -n 120 -s 100000 -b 4 $TESTDIR/120bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/120bin.dat
-../compute_nn -c 4.38178046004133 -n 480 -s 100000 -b 16 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin.dat
-../compute_nn -c 4.38178046004133 -n 1920 -s 100000 -b 64 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin.dat
+../compute_nn -d 10 $TESTDIR/30bin_drop.dat -c 4.38178046004133 -n 30 -s 100000 $TESTDIR/data/config{0..999}.dat > $TESTDIR/30bin.dat
+../compute_nn -d 10 $TESTDIR/120bin_drop.dat -c 4.38178046004133 -n 120 -s 100000 -b 4 $TESTDIR/120bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/120bin.dat
+../compute_nn -d 10 $TESTDIR/480bin_drop.dat -c 4.38178046004133 -n 480 -s 100000 -b 16 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin.dat
+../compute_nn -d 10 $TESTDIR/1920bin_drop.dat -c 4.38178046004133 -n 1920 -s 100000 -b 64 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin.dat
 
-../compute_nn -c 4.38178046004133 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin2.dat
-../compute_nn -c 4.38178046004133 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin2.dat
+../compute_nn -d 10 $TESTDIR/480bin_drop2.dat -c 4.38178046004133 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin2.dat
+../compute_nn -d 10 $TESTDIR/1920bin_drop2.dat -c 4.38178046004133 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin2.dat
 
 echo "finished 2D poisson tests"
 
@@ -80,13 +80,13 @@ for i in {0..999}; do
     ./gen_poisson 3 10000 $TESTDIR/data/config$i &> /dev/null
 done
 
-../compute_nn -c 3.0 -n 30 -s 100000 $TESTDIR/data/config{0..999}.dat > $TESTDIR/30bin.dat
-../compute_nn -c 3.0 -n 120 -s 100000 -b 4 $TESTDIR/120bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/120bin.dat
-../compute_nn -c 3.0 -n 480 -s 100000 -b 16 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin.dat
-../compute_nn -c 3.0 -n 1920 -s 100000 -b 64 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin.dat
+../compute_nn -d 10 $TESTDIR/30bin_drop.dat -c 3.0 -n 30 -s 100000 $TESTDIR/data/config{0..999}.dat > $TESTDIR/30bin.dat
+../compute_nn -d 10 $TESTDIR/120bin_drop.dat -c 3.0 -n 120 -s 100000 -b 4 $TESTDIR/120bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/120bin.dat
+../compute_nn -d 10 $TESTDIR/480bin_drop.dat -c 3.0 -n 480 -s 100000 -b 16 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin.dat
+../compute_nn -d 10 $TESTDIR/1920bin_drop.dat -c 3.0 -n 1920 -s 100000 -b 64 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin.dat
 
-../compute_nn -c 3.0 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin2.dat
-../compute_nn -c 3.0 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin2.dat
+../compute_nn -d 10 $TESTDIR/480bin_drop2.dat -c 3.0 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/480bin2.dat
+../compute_nn -d 10 $TESTDIR/1920bin_drop2.dat -c 3.0 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block2.dat $TESTDIR/data/config{0..999}.dat > $TESTDIR/1920bin2.dat
 
 echo "finished poisson 3d tests"
 
@@ -100,10 +100,10 @@ for i in {0..1999}; do
     ./1d_rsa 10000 0.6 $TESTDIR/data/config$i &> /dev/null
 done
 
-../compute_nn -c "1.8e-4" -n 30 -s 100000 $TESTDIR/data/config{0..1999}.dat > $TESTDIR/30bin.dat
-../compute_nn -c "1.8e-4" -n 120 -s 100000 $TESTDIR/data/config{0..1999}.dat > $TESTDIR/120bin.dat
-../compute_nn -c "1.8e-4" -n 480 -s 100000 -b 4 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..1999}.dat > $TESTDIR/480bin.dat
-../compute_nn -c "1.8e-4" -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..1999}.dat > $TESTDIR/1920bin.dat
+../compute_nn -d 10 $TESTDIR/30bin_drop.dat -c "1.8e-4" -n 30 -s 100000 $TESTDIR/data/config{0..1999}.dat > $TESTDIR/30bin.dat
+../compute_nn -d 10 $TESTDIR/120bin_drop.dat -c "1.8e-4" -n 120 -s 100000 $TESTDIR/data/config{0..1999}.dat > $TESTDIR/120bin.dat
+../compute_nn -d 10 $TESTDIR/480bin_drop.dat -c "1.8e-4" -n 480 -s 100000 -b 4 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..1999}.dat > $TESTDIR/480bin.dat
+../compute_nn -d 10 $TESTDIR/1920bin_drop.dat -c "1.8e-4" -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..1999}.dat > $TESTDIR/1920bin.dat
 
 
 echo "finished 1D RSA tests"
@@ -119,10 +119,10 @@ if [ "$1" == "--full" ]; then
         ./1d_rsa 10000 0.72 $TESTDIR/data/config$i &> /dev/null
     done
 
-    ../compute_nn -c "2.16e-4" -n 30 -s 100000 $TESTDIR/data/config{0..19999}.dat > $TESTDIR/30bin.dat
-    ../compute_nn -c "2.16e-4" -n 120 -s 100000 $TESTDIR/data/config{0..19999}.dat > $TESTDIR/120bin.dat
-    ../compute_nn -c "2.16e-4" -n 480 -s 100000 -b 4 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..19999}.dat > $TESTDIR/480bin.dat
-    ../compute_nn -c "2.16e-4" -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..19999}.dat > $TESTDIR/1920bin.dat
+    ../compute_nn -d 10 $TESTDIR/30bin_drop.dat -c "2.16e-4" -n 30 -s 100000 $TESTDIR/data/config{0..19999}.dat > $TESTDIR/30bin.dat
+    ../compute_nn -d 10 $TESTDIR/120bin_drop.dat -c "2.16e-4" -n 120 -s 100000 $TESTDIR/data/config{0..19999}.dat > $TESTDIR/120bin.dat
+    ../compute_nn -d 10 $TESTDIR/480bin_drop.dat -c "2.16e-4" -n 480 -s 100000 -b 4 $TESTDIR/480bin_block.dat $TESTDIR/data/config{0..19999}.dat > $TESTDIR/480bin.dat
+    ../compute_nn -d 10 $TESTDIR/1920bin_drop.dat -c "2.16e-4" -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block.dat $TESTDIR/data/config{0..19999}.dat > $TESTDIR/1920bin.dat
 
     echo "finished long 1D_RSA tests"
 fi
