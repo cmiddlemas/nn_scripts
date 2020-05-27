@@ -21,8 +21,8 @@ done
 
 ../compute_nn -p -c 3.0 -n 30 -s 100000 --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/30bin.dat
 ../compute_nn -p -c 3.0 -n 120 -s 100000 --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/120bin.dat
-../compute_nn -p -c 3.0 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block.dat --cycles 100 $TESTDIR/data/config{0..9}.dat > 2D_square_lattice/480bin.dat
-../compute_nn -p -c 3.0 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block.dat --cycles 100 $TESTDIR/data/config{0..9}.dat > 2D_square_lattice/1920bin.dat
+../compute_nn -p -c 3.0 -n 480 -s 100000 -b 4 $TESTDIR/480bin_block.dat --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/480bin.dat
+../compute_nn -p -c 3.0 -n 1920 -s 100000 -b 16 $TESTDIR/1920bin_block.dat --cycles 100 $TESTDIR/data/config{0..9}.dat > $TESTDIR/1920bin.dat
 
 if [ "$1" = "--full" ]; then
     ../compute_nn -p -c 3.0 -n 7680 -s 10000 -b 64 $TESTDIR/7680bin_block.dat --cycles 1000 $TESTDIR/data/config{0..9}.dat > $TESTDIR/7680bin.dat
