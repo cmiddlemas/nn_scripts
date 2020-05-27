@@ -1,6 +1,9 @@
+# nn_scripts
+
 Author: Timothy Middlemas
 
-A series of scripts to compute nearest-neighbor functions
+A script to compute nearest-neighbor functions and a collection
+of scripts to help test the output
 
 I heavily used Ge Zhang's C++ code and many previous Torquato
 group papers in designing this code.
@@ -13,7 +16,8 @@ the --full flag will also run the phi = 0.72 rsa case and a fifth
 bin size on the square lattice case, which takes more time. You can
 find the analytical results in the test/analytical directory,
 and all the files in there were computed by the analytical_nn.nb
-Mathematica notebook.
+Mathematica notebook. The script run_tests_particle.sh does the same, but
+for the particle quantities.
 
 For the square lattice case, see the paper Torquato, PRE 82, 056109 (2010).
 For the rsa case, see the paper by Rintoul, Torquato, and Tarjus, PRE 53, 450 (1996).
