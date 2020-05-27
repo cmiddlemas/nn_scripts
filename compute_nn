@@ -154,7 +154,7 @@ if __name__ == "__main__":
         idx = sys.argv.index("-d")
         sys.argv.pop(idx)
         drop_cutoff = sys.argv.pop(idx)
-        drop_file = open(sys.argv.pop(idx))
+        drop_file = open(sys.argv.pop(idx), mode='w')
 
     
     n_ensemble = len(sys.argv) - 1 # number of configurations in ensemble
