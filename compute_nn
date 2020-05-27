@@ -153,7 +153,7 @@ if __name__ == "__main__":
         drop_bins = True
         idx = sys.argv.index("-d")
         sys.argv.pop(idx)
-        drop_cutoff = sys.argv.pop(idx)
+        drop_cutoff = int(sys.argv.pop(idx))
         drop_file = open(sys.argv.pop(idx), mode='w')
 
     
