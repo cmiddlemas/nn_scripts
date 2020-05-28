@@ -3,8 +3,7 @@
 compute_nn
 Author: Timothy Middlemas
 
-Program to sample all of H_V(r), E_V(r), G_V(r) and
-the corresponding particle quantities at once
+Program to sample all of the nearest neighbor functions
 
 Uses Scipy's cKDTree implementation for lookup
 
@@ -12,7 +11,7 @@ Implements periodic boundary conditions by 1 layer of
 replication. Note that this is usually, but not always
 correct, so be careful.
 
-Usage: compute_nn [infiles ...] > [outfile]
+Usage: compute_nn [options] infiles... > outfile
 
 Will interpret multiple infiles as ensemble average
 
@@ -33,7 +32,7 @@ The meaning of each column is as follows
 13 ratio_G_V
 14 unc_ratio_G_V
 
-Most of these are self explanator. count_E_V gives
+Most of these are self explanatory. count_E_V gives
 the raw counts for E_V determination, so that one can easily
 make a rough cutoff based on requiring a small number of samples
 to have good statistics
@@ -58,7 +57,7 @@ arise are due simply to floating point error.
 
 Estimating the uncertainty in unc_ratio_G_V is done by
 the std err of the mean, but it is worth noting that
-we only compute ratio_G_V for those bins where for
+we only get a useful value of ratio_G_V for those bins where for
 every configuration, G_V is not nan.
 
 Options:
