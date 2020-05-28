@@ -13,7 +13,8 @@ Options:
     -d [dimension] -> Set dimension of script, default = 3
     -c [cutoff] -> Only use the first [cutoff] data points, default = 10
     -l [lower_cutoff] -> displace "beginning" of file, default = 0
-    -b -> Assume we are given a block file as input
+    -b -> Assume we are given a block file as input, ignore -l, -c, and -e
+    -e -> Assume we are given a file with dropped points, ignore -l and -c
     -i -> Turn of finite size effect estimation
 """
 
@@ -39,6 +40,7 @@ if __name__ == "__main__":
     cutoff = 10
     lower_cutoff = 0
     is_block = False
+    is_drop = False
     assume_infinite = False
     if "-h" in sys.argv or "--help" in sys.argv:
         print(__doc__)
@@ -58,6 +60,9 @@ if __name__ == "__main__":
     if "-b" in sys.argv:
         is_block = True
         sys.argv.remove("-b")
+    if "-e" in sys.argv:
+        is_drop = True
+        sys.argv.remove("-e")
     if "-i" in sys.argv:
         assume_infinite = True
         sys.argv.remove("-i")
@@ -66,11 +71,16 @@ if __name__ == "__main__":
 
     indata = np.loadtxt(infile)
 
-    domain = indata[lower_cutoff:lower_cutoff+cutoff,0]
     if is_block:
-        g = indata[lower_cutoff:lower_cutoff+cutoff,1]
-        g_unc = indata[lower_cutoff:lower_cutoff+cutoff,2]
+        domain = indata[:,0]
+        g = indata[:,1]
+        g_unc = indata[:,2]
+    elif is_drop:
+        domain = indata[:,0]
+        g = indata[:,5]
+        g_unc = indata[:,6]
     else:
+        domain = indata[lower_cutoff:lower_cutoff+cutoff,0]
         g = indata[lower_cutoff:lower_cutoff+cutoff,8]
         g_unc = indata[lower_cutoff:lower_cutoff+cutoff,9]
 
