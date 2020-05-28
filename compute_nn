@@ -359,7 +359,7 @@ if __name__ == "__main__":
 
     # Do a post-division averaging of g
     if use_blocks:
-        n_blocks = g.len()//block_size
+        n_blocks = len(g)//block_size
         domain_blocks = np.zeros(n_blocks)
         g_blocks = np.zeros(n_blocks)
         g_unc_blocks = np.zeros(n_blocks)
