@@ -177,6 +177,7 @@ if __name__ == "__main__":
     density = 0.0
 
     dim = 0
+    n_obs = 0
     for m, path in enumerate(input_paths): # Loop over configurations
         if m%100 == 0:
             # https://stackoverflow.com/questions/5574702/how-to-print-to-stderr-in-python
@@ -228,6 +229,8 @@ if __name__ == "__main__":
                         distance_upper_bound=cutoff)
                 nn_dist = dd
             
+            n_obs += n_samples
+
             # Bin samples
             tiled_right = np.tile(right_bin_boundaries, (n_samples, 1))
             tiled_left = np.tile(left_bin_boundaries, (n_samples, 1))
@@ -261,11 +264,11 @@ if __name__ == "__main__":
     # Save the raw final counts for interpretation purposes
     h_final_count = np.copy(h)
     e_final_count = np.copy(e)
-    # Use the full number of samples for normalization
-    n_samples = n_samples*n_cycles
+    # Compute the average number of samples per configuration
+    avg_n_samples = float(n_obs)/float(n_ensemble)
     # Normalize h, e and density
-    h /= float(n_samples*n_ensemble)*bin_size 
-    e /= float(n_samples*n_ensemble)
+    h /= float(n_obs)*bin_size 
+    e /= float(n_obs)
     density /= float(n_ensemble)
     # Normalize g_ratio
     rho_s1_dr = density*(sphere_vol(dim, right_bin_boundaries) - sphere_vol(dim,
@@ -273,16 +276,16 @@ if __name__ == "__main__":
     g_ratio /= rho_s1_dr*float(n_ensemble)
 
     # Compute uncertainties in h and e, sample std err
-    h_unc /= (float(n_samples)*bin_size) ** 2.0
+    h_unc /= (float(avg_n_samples)*bin_size) ** 2.0
     h_unc = (h_unc - float(n_ensemble)*h*h)/float(n_ensemble - 1)
     h_unc = np.sqrt(h_unc/float(n_ensemble))
-    e_unc /= float(n_samples) ** 2.0
+    e_unc /= float(avg_n_samples) ** 2.0
     e_unc = (e_unc - float(n_ensemble)*e*e)/float(n_ensemble - 1)
     e_unc = np.sqrt(e_unc/float(n_ensemble))
     # Compute covariance of h and e, with mean correction
     # https://stats.stackexchange.com/questions/163583/covariance-of-two-sample-means
     # https://stats.stackexchange.com/questions/142456/why-shouldnt-the-denominator-of-the-covariance-estimator-be-n-2-rather-than-n-1/142472#142472
-    he_cov /= bin_size*(float(n_samples) ** 2.0)
+    he_cov /= bin_size*(float(avg_n_samples) ** 2.0)
     he_cov = (he_cov - float(n_ensemble)*h*e)/float(n_ensemble - 1)
     he_cov /= float(n_ensemble)
 
