@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""
+compute_nn_exact
+
+Compute the void nearest neighbor functions using the
+volume and surface area method
+
+Only works in 1d for now
+
+Usage: exact_gv [options] infiles... > outfile
+
+Output format:
+    ???
+
+Options:
+    -h, --help -> Print this message
+    -c -> Specify the cutoff (default = 1.0)
+    -n -> Specify the number of points to evaluate at (default = 10)
+"""
+
+import numpy as np
+import sys
+
+if __name__ == "__main__":
+    cutoff = 1.0
+    n_eval = 10
+    if "-h" in sys.argv or "--help" in sys.argv:
+        print(__doc__)
+        sys.exit()
+    if "-c" in sys.argv:
+        idx = sys.argv.index("-c")
+        sys.argv.pop(idx)
+        cutoff = float(sys.argv.pop(idx))
+    if "-n" in sys.argv:
+        idx = sys.argv.index("-n")
+        sys.argv.pop(idx)
+        n_eval = int(sys.argv.pop(idx))
+    
+    file_names = sys.argv[1:]
+    n_files = len(file_names)
+
+    domain = np.linspace(0.0, cutoff, num=n_eval)
+    hv = np.zeros(domain.shape)
+    ev = np.zeros(domain.shape)
+    # For uncertainty estimation
+    hv2 = np.zeros(domain.shape)
+    ev2 = np.zeros(domain.shape)
+    hecov = np.zeros(domain.shape)
+
+    for i, fname in enumerate(file_names):
+        with open(fname) as infile:
+            if i%100 == 0:
+                print("Working on file {}".format(i), file=sys.stderr)
+
+            # Discard redundant dimensional info
+            infile.readline()
+            
+            box_size = np.fromstring(infile.readline(), dtype=float, sep=' ')[0]
+            input_data = np.loadtxt(infile)
+            pos = input_data[:, 0]
+            sorted_pos = np.sort(pos)
+            
+            # Make a list of gaps between particles
+            gaps = np.zeros(sorted_pos.shape)
+            l = len(sorted_pos)
+            for i in range(0, l-1):
+                gaps[i] = sorted_pos[i+1] - sorted_pos[i]
+            gaps[l-1] = sorted_pos[0] + (box_size - sorted_pos[l-1])
+            
+            # Use list of gaps to compute hv and ev
+            temp_hv = np.zeros(domain.shape)
+            temp_ev = np.zeros(domain.shape)
+            for gap in gaps:
+                # Using closed set covering interpretation
+                temp_hv += np.heaviside(gap - 2.0*domain, 0.0)
+                temp_ev += (gap - 2.0*domain) \
+                        *np.heaviside(gap - 2.0*domain, 0.0)
+            
+            # Normalize
+            temp_hv *= 2.0/box_size
+            temp_ev /= box_size
+            # Update accumulators
+            hv += temp_hv
+            hv2 += temp_hv*temp_hv
+            ev += temp_ev
+            ev2 += temp_ev*temp_ev
+            hecov += temp_hv*temp_ev
+
+    hv /= n_files
+    hv2 = hv2/(n_files - 1) - n_files*hv*hv/(n_files - 1)
+    hv2 /= n_files
+    hv_unc = np.sqrt(hv2)
+    ev /= n_files
+    ev2 = ev2/(n_files - 1) - n_files*ev*ev/(n_files - 1)
+    ev2 /= n_files
+    ev_unc = np.sqrt(ev2)
+    hecov = hecov/(n_files - 1) - n_files*hv*ev/(n_files - 1)
+    hecov /= n_files
+
+    gv = hv/(2.0*ev)
+    gv2 = (hv2/(ev*ev) + hv*hv*ev2/(ev*ev*ev*ev) - 2*hv*hecov/(ev*ev*ev))/4.0
+    gv_unc = np.sqrt(gv2)
+
+    np.savetxt(sys.stdout.buffer, np.stack([domain, hv, hv_unc, ev, ev_unc, gv, gv_unc, gv2], -1))
