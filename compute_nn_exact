@@ -7,10 +7,22 @@ volume and surface area method
 
 Only works in 1d for now
 
-Usage: exact_gv [options] infiles... > outfile
+Usage: compute_nn_exact [options] infiles... > outfile
 
 Output format:
-    ???
+column # | val
+1 | domain
+2 | hv
+3 | uncertainty in hv
+4 | ev
+5 | uncertainty in ev
+6 | gv
+7 | uncertainty in gv
+8 | variance in gv, included because
+    sometimes uncertainty can be nan
+    due to floating point error, this
+    column allows the user to verify
+    that
 
 Options:
     -h, --help -> Print this message
