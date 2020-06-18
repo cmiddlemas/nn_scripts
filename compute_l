@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+"""
+compute_l
+Author: Timothy Middlemas
+
+Program to compute l_V and l_P
+
+Uses Scipy's cKDTree implementation for lookup
+
+Implements periodic boundary conditions by 1 layer of
+replication. Note that this is usually, but not always
+correct, so be careful.
+
+Usage: compute_l [options] infiles... > outfile
+
+Will interpret multiple infiles as ensemble average
+
+Output: l_V unc_l_V
+
+Uncertainty given as std err of mean
+
+Options:
+    -h, --help -> Print this message
+    -s [samples] -> number of sample points per configuration for void
+                    quantities (default: 1000)
+    --cycles [cycles] -> number of times to repeat samples on a single
+                         configuration, use if -s [samples] would
+                         create arrays too large for your ram.
+                         do not use for particle quanties, will
+                         lead to wrong error bars
+                         (default: 1)
+    -p -> Compute particle quantities instead of void
+"""
+
+import sys
+import numpy as np
+from scipy.spatial import cKDTree
+
+# Volume of the fundamental cell passed as a matrix
+def basis_vol(basis):
+    return np.linalg.det(basis)
+
+# Volume of sphere of radius r in dimension dim
+def sphere_vol(dim, r):
+    if dim == 1:
+        return 2*r
+    elif dim == 2:
+        return np.pi*r*r
+    elif dim == 3:
+        return 4.0*np.pi*r*r*r/3.0
+    else:
+        print("Dimension not implemented", file=sys.stderr)
+        sys.exit(-1)
+
+if __name__ == "__main__":
+    # Parse command line
+    n_samples = 1000
+    n_cycles = 1
+    compute_particle = False
+
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit()
+    # https://stackoverflow.com/questions/9542738/python-find-in-list
+    if "-s" in sys.argv:
+        idx = sys.argv.index("-s")
+        sys.argv.pop(idx)
+        n_samples = int(sys.argv.pop(idx))
+    if "--cycles" in sys.argv:
+        idx = sys.argv.index("--cycles")
+        sys.argv.pop(idx)
+        n_cycles = int(sys.argv.pop(idx))
+    if "-p" in sys.argv:
+        sys.argv.remove("-p")
+        compute_particle = True
+    
+    n_ensemble = len(sys.argv) - 1 # number of configurations in ensemble
+    input_paths = sys.argv[1:]
+
+    # Initialize accumulators
+    mean_nn = 0.0
+    mean_nn2 = 0.0
+    density = 0.0
+
+    dim = 0
+    n_obs = 0
+    for m, path in enumerate(input_paths): # Loop over configurations
+        if m%100 == 0:
+            # https://stackoverflow.com/questions/5574702/how-to-print-to-stderr-in-python
+            print("Working on file " + str(m), file=sys.stderr)
+        # Read necessary stuff from file
+        infile = open(path)
+        dim = int(infile.readline())
+        basis = np.atleast_2d(np.loadtxt(infile, max_rows=dim))[:, :dim]
+        # https://stackoverflow.com/questions/31698242/python-how-can-i-force-1-element-numpy-arrays-to-be-two-dimensional
+        points = np.atleast_2d(np.loadtxt(infile))[:, :dim]
+        n_points = len(points)
+        density += float(n_points)/basis_vol(basis)
+
+        # Construct periodic images
+        periodic = np.tile(points, (3**dim, 1))
+        for i in range(3**dim):
+            for j in range(dim):
+                a = i
+                for k in range(j):
+                    a = a//3
+                a = (a%3) - 1
+                periodic[i*n_points:(i+1)*n_points, :] += a*basis[j, :]
+        
+        # Handles efficient nearest-neighbor lookup
+        # https://stackoverflow.com/questions/31819778/scipy-spatial-ckdtree-running-slowly
+        tree = cKDTree(periodic, balanced_tree=False, compact_nodes=False)
+
+        # Declare temporary accumulator
+        temp_mean_nn = 0.0
+        # Possibly repeat sampling due to memory limitations
+        for _ in range(n_cycles):
+            if compute_particle:
+                samples = points
+                n_samples = n_points
+
+                # Generate nn distances, k=2 because we
+                # always get the point itself as first match
+                dd, ii = tree.query(samples, k=2, n_jobs=-1)
+                nn_dist = dd[:,1]
+            else: # compute the void nearest neighbor functions
+                # Choose spatial points to sample randomly
+                samples = np.random.rand(n_samples, dim) @ basis
+
+                # Generate nn distances
+                dd, ii = tree.query(samples, k=1, n_jobs=-1)
+                nn_dist = dd
+            
+            n_obs += n_samples
+
+            # Add to temp_mean_nn for this cycle
+            temp_mean_nn += np.sum(nn_dist)
+
+        # Update mean_nn with data from all cycles
+        mean_nn += temp_mean_nn
+        mean_nn2 += temp_mean_nn*temp_mean_nn
+
+    # Normalize results
+    avg_n_samples = float(n_obs)/n_ensemble
+    mean_nn /= n_obs
+    mean_nn2 /= avg_n_samples*avg_n_samples
+    mean_nn_unc = np.sqrt((mean_nn2 - n_ensemble*mean_nn*mean_nn)/(n_ensemble*(n_ensemble - 1)))
+
+    print("{} {}".format(mean_nn, mean_nn_unc))
