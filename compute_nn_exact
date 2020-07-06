@@ -28,6 +28,9 @@ Options:
     -h, --help -> Print this message
     -c -> Specify the cutoff (default = 1.0)
     -n -> Specify the number of points to evaluate at (default = 10)
+    -d [cutoff] [file] -> drop bins with less than [cutoff] number of
+                          gaps contributing and store the results
+                          of that analysis in [file]
 """
 
 import numpy as np
@@ -36,6 +39,7 @@ import sys
 if __name__ == "__main__":
     cutoff = 1.0
     n_eval = 10
+    drop_bins = False
     if "-h" in sys.argv or "--help" in sys.argv:
         print(__doc__)
         sys.exit()
@@ -47,6 +51,12 @@ if __name__ == "__main__":
         idx = sys.argv.index("-n")
         sys.argv.pop(idx)
         n_eval = int(sys.argv.pop(idx))
+    if "-d" in sys.argv:
+        drop_bins = True
+        idx = sys.argv.index("-d")
+        sys.argv.pop(idx)
+        drop_cutoff = int(sys.argv.pop(idx))
+        drop_file = open(sys.argv.pop(idx), "w")
     
     file_names = sys.argv[1:]
     n_files = len(file_names)
@@ -58,6 +68,8 @@ if __name__ == "__main__":
     hv2 = np.zeros(domain.shape)
     ev2 = np.zeros(domain.shape)
     hecov = np.zeros(domain.shape)
+    # For drop analysis
+    contributing_gaps = np.zeros(domain.shape)
 
     for i, fname in enumerate(file_names):
         with open(fname) as infile:
@@ -87,6 +99,7 @@ if __name__ == "__main__":
                 temp_hv += np.heaviside(gap - 2.0*domain, 0.0)
                 temp_ev += (gap - 2.0*domain) \
                         *np.heaviside(gap - 2.0*domain, 0.0)
+                contributing_gaps += np.heaviside(gap - 2.0*domain, 0.0)
             
             # Normalize
             temp_hv *= 2.0/box_size
@@ -112,5 +125,20 @@ if __name__ == "__main__":
     gv = hv/(2.0*ev)
     gv2 = (hv2/(ev*ev) + hv*hv*ev2/(ev*ev*ev*ev) - 2*hv*hecov/(ev*ev*ev))/4.0
     gv_unc = np.sqrt(gv2)
+
+    if drop_bins:
+        gap_mask = contributing_gaps >= drop_cutoff
+        np.savetxt(
+                drop_file,
+                np.stack([
+                    domain[gap_mask],
+                    hv[gap_mask],
+                    hv_unc[gap_mask],
+                    ev[gap_mask],
+                    ev_unc[gap_mask],
+                    gv[gap_mask],
+                    gv_unc[gap_mask],
+                    gv2[gap_mask]], -1)
+                )
 
     np.savetxt(sys.stdout.buffer, np.stack([domain, hv, hv_unc, ev, ev_unc, gv, gv_unc, gv2], -1))
