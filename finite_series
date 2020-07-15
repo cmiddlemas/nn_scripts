@@ -70,9 +70,49 @@ def compute_order_2(grid, points, box_length):
     return result/box_length
 
 def compute_order_3(grid, points, box_length):
-    print("Not implemented!", file=sys.stderr)
-    sys.exit(-1)
-    return np.zeros(grid.shape)
+    result = np.zeros(grid.shape)
+    n_cells = len(points)
+
+    for i in range(n_cells):
+        curr_cell = points[i]
+        n_in_curr_cell = len(curr_cell)
+        next_cell = points[(i+1)%n_cells]
+        n_in_next_cell = len(next_cell)
+        
+        for j in range(n_in_curr_cell):
+            p_j = curr_cell[j]
+            
+            for k in range(j):
+                p_k = curr_cell[k]
+                
+                # Case 1: All in curr_cell
+                for l in range(k):
+                    p_l = curr_cell[l]
+                    rjk = dist(p_j, p_k, box_length)
+                    rjl = dist(p_j, p_l, box_length)
+                    rkl = dist(p_k, p_l, box_length)
+                    result += v3(grid, rjk, rjl, rkl)
+                
+                # Case 2: 2 in curr_cell, 1 in next_cell
+                for l in range(n_in_next_cell):
+                    p_l = next_cell[l]
+                    rjk = dist(p_j, p_k, box_length)
+                    rjl = dist(p_j, p_l, box_length)
+                    rkl = dist(p_k, p_l, box_length)
+                    result += v3(grid, rjk, rjl, rkl)
+            
+            # Case 3: 1 in curr_cell, 2 in next_cell
+            for k in range(n_in_next_cell):
+                p_k = next_cell[k]
+                
+                for l in range(k):
+                    p_l = next_cell[l]
+                    rjk = dist(p_j, p_k, box_length)
+                    rjl = dist(p_j, p_l, box_length)
+                    rkl = dist(p_k, p_l, box_length)
+                    result += v3(grid, rjk, rjl, rkl)
+
+    return result/box_length
 
 def single_configuration(grid, points, box_length, order, rho):
     result = np.ones(grid.shape)
@@ -81,7 +121,7 @@ def single_configuration(grid, points, box_length, order, rho):
     if order >= 2:
         result += compute_order_2(grid, points, box_length)
     if order >= 3:
-        result += compute_order_3(grid, points, box_length)
+        result -= compute_order_3(grid, points, box_length)
     return result
 
 def make_cell_list(points, box_length, cutoff):
