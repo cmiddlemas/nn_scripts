@@ -70,6 +70,8 @@ if __name__ == "__main__":
     hecov = np.zeros(domain.shape)
     # For drop analysis
     contributing_gaps = np.zeros(domain.shape)
+    
+    rho = 0
 
     for i, fname in enumerate(file_names):
         with open(fname) as infile:
@@ -82,6 +84,7 @@ if __name__ == "__main__":
             box_size = np.fromstring(infile.readline(), dtype=float, sep=' ')[0]
             input_data = np.loadtxt(infile)
             pos = input_data[:, 0]
+            rho += float(len(pos))/box_size
             sorted_pos = np.sort(pos)
             
             # Make a list of gaps between particles
@@ -111,6 +114,7 @@ if __name__ == "__main__":
             ev2 += temp_ev*temp_ev
             hecov += temp_hv*temp_ev
 
+    rho /= n_files
     hv /= n_files
     hv2 = hv2/(n_files - 1) - n_files*hv*hv/(n_files - 1)
     hv2 /= n_files
@@ -122,8 +126,9 @@ if __name__ == "__main__":
     hecov = hecov/(n_files - 1) - n_files*hv*ev/(n_files - 1)
     hecov /= n_files
 
-    gv = hv/(2.0*ev)
+    gv = hv/(2.0*rho*ev)
     gv2 = (hv2/(ev*ev) + hv*hv*ev2/(ev*ev*ev*ev) - 2*hv*hecov/(ev*ev*ev))/4.0
+    gv2 /= rho*rho
     gv_unc = np.sqrt(gv2)
 
     if drop_bins:
