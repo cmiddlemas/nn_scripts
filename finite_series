@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""
+finite_series
+
+Computes E_V(r) for a 1D system through the
+formula (62) in Torquato, Reformulation..., PRE 82 (2010).
+
+Usage: finite_series [options] infiles... > outfile
+
+infiles use Ge's text file format, and each
+file contains one configuration
+
+outfiles use format
+r E_V E_V_unc
+where E_V_unc is computed as std err of mean
+with each configuration being treated as independent
+
+Options:
+    -h, --help: Print this message
+    -o: Give the order to use in the series (62) [default = 2]
+    -c: Give the upper cutoff for computing E_V(r) [default = 1.0]
+    -n: Give the number of grid points [default = 10]
+"""
+
+import sys
+import numpy as np
+
+def dist(p_i, p_j, box_length):
+    raw_rij = np.abs(p_i - p_j)
+    return min(raw_rij, box_length - raw_rij)
+
+def v1(R):
+    return 2.0*R
+
+def v2(R, rij):
+    return v1(R)*np.heaviside(2.0*R - rij, 0.0)*(1.0 - rij/(2.0*R))
+
+def v3(R, rij, rik, rjk):
+    # No intersection if any pair of the three points are too far apart
+    theta = np.heaviside(2.0*R - rij, 0.0) \
+            *np.heaviside(2.0*R - rik, 0.0) \
+            *np.heaviside(2.0*R - rjk, 0.0)
+    
+    # Then the triple intersection is the same as the pair intersection
+    # between the farthest points
+    # Only works in 1D, since third point must be between
+    # the other two
+    farthest = max(max(rij, rik), rjk)
+    return theta*v2(R, farthest)
+
+# points is a cell list [np.array0, np.array1, ...]
+def compute_order_2(grid, points, box_length):
+    result = np.zeros(grid.shape)
+    n_cells = len(points)
+    
+    for i in range(n_cells):
+        curr_cell = points[i]
+        n_in_cell = len(curr_cell)
+        next_cell = points[(i+1)%n_cells]
+        for j in range(n_in_cell):
+            p = curr_cell[j]
+            for k in range(j):
+                q = curr_cell[k]
+                rpq = dist(p, q, box_length)
+                result += v2(grid, rpq)
+            for q in next_cell:
+                rpq = dist(p, q, box_length)
+                result += v2(grid, rpq)
+    
+    return result/box_length
+
+def compute_order_3(grid, points, box_length):
+    print("Not implemented!", file=sys.stderr)
+    sys.exit(-1)
+    return np.zeros(grid.shape)
+
+def single_configuration(grid, points, box_length, order, rho):
+    result = np.ones(grid.shape)
+    if order >= 1:
+        result -= rho*v1(grid)
+    if order >= 2:
+        result += compute_order_2(grid, points, box_length)
+    if order >= 3:
+        result += compute_order_3(grid, points, box_length)
+    return result
+
+def make_cell_list(points, box_length, cutoff):
+    # Make sure everthing is strictly in [0.0, box_length)
+    for p in points:
+        if p < 0.0 or p >= box_length:
+            print("Particle not in box, check generating program!", file=sys.stderr)
+            sys.exit(-1)
+
+    cell_list = []
+    
+    # Determine the number of cells based on the cutoff
+    cell_spec = np.linspace(0.0, box_length, int(box_length/(2.0*cutoff)) + 1)
+    print("Number of cells: {}".format(len(cell_spec) - 1), file=sys.stderr)
+    
+    # Make the cell list
+    for i in range(len(cell_spec) - 1):
+        cell = []
+        for p in points:
+            if p >= cell_spec[i] and p < cell_spec[i+1]:
+                cell += [p]
+        cell_list += [np.array(cell)]
+    
+    return cell_list
+
+if __name__ == "__main__":
+    # Parse command line
+    order = 2
+    cutoff = 1.0
+    n_grid = 10
+    if "-h" in sys.argv or "--help" in sys.argv:
+        print(__doc__)
+        sys.exit()
+    if "-o" in sys.argv:
+        idx = sys.argv.index("-o")
+        sys.argv.pop(idx)
+        order = int(sys.argv.pop(idx))
+    if "-c" in sys.argv:
+        idx = sys.argv.index("-c")
+        sys.argv.pop(idx)
+        cutoff = float(sys.argv.pop(idx))
+    if "-n" in sys.argv:
+        idx = sys.argv.index("-n")
+        sys.argv.pop(idx)
+        n_grid = int(sys.argv.pop(idx))
+    infiles = [open(fname) for fname in sys.argv[1:]]
+    n_files = len(infiles)
+
+    # Determine evaluation grid
+    grid = np.linspace(0.0, cutoff, num=n_grid)
+    e_v = np.zeros(n_grid)
+    e_v_unc = np.zeros(n_grid)
+
+    # Compute E_V(r) over grid for each configuration
+    for n, f in enumerate(infiles):
+        if n%100 == 0:
+            print("Working on file {}".format(n), file=sys.stderr)
+        # Read file info
+        f.readline()
+        box_length = float(f.readline().split()[0])
+        raw_points = np.loadtxt(f)[:,0]
+        rho = float(len(raw_points))/box_length
+        
+        # Compute cell_list
+        points = make_cell_list(raw_points, box_length, cutoff)
+
+        # Compute for a single configuration
+        temp_e_v = single_configuration(grid, points, box_length, order, rho)
+        e_v += temp_e_v
+        e_v_unc += temp_e_v*temp_e_v
+
+    # Postprocess mean and uncertainty
+    e_v /= n_files
+    e_v_unc = np.sqrt((e_v_unc - n_files*e_v*e_v)/(n_files - 1))
+    e_v_unc /= np.sqrt(float(n_files))
+
+    # Output results
+    np.savetxt(sys.stdout.buffer,
+            np.stack([
+                grid,
+                e_v,
+                e_v_unc], -1)
+            )
