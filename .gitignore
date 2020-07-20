@@ -4,3 +4,6 @@
 /test/1D_RSA*/
 /test/2D_square_lattice*/
 /test/1D_RSA_long*/
+/test/old_tests*/
+*.stdout
+*.stderr

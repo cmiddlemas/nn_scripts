@@ -17,42 +17,44 @@ with each configuration being treated as independent
 
 Options:
     -h, --help: Print this message
-    -o: Give the order to use in the series (62) [default = 2]
+    -o: Give the order to use in the series (62), if -1, use
+        highest order possible [Default = -1]
     -c: Give the upper cutoff for computing E_V(r) [default = 1.0]
     -n: Give the number of grid points [default = 10]
 """
 
 import sys
 import numpy as np
+from scipy.special import comb
 
-def dist(p_i, p_j, box_length):
-    raw_rij = np.abs(p_i - p_j)
-    return min(raw_rij, box_length - raw_rij)
+# Returns a tuple (r, n), where
+# r is the shortest periodic cell distance
+# and n is the number of particles in between
+# the two particles using that shortest distance
+def dist(p_i, p_j, box_length, n_particles):
+    raw_rij = np.abs(p_i[0] - p_j[0])
+    raw_idx_diff = abs(p_i[1] - p_j[1])
+    alt_rij = box_length - raw_rij
+    if raw_rij <= alt_rij:
+        return (raw_rij, raw_idx_diff - 1)
+    else:
+        return (alt_rij, n_particles - raw_idx_diff - 1)
 
+# All n-point intersections can be given in terms of
+# v1(R) and v2(R) in 1D
 def v1(R):
     return 2.0*R
 
 def v2(R, rij):
     return v1(R)*np.heaviside(2.0*R - rij, 0.0)*(1.0 - rij/(2.0*R))
 
-def v3(R, rij, rik, rjk):
-    # No intersection if any pair of the three points are too far apart
-    theta = np.heaviside(2.0*R - rij, 0.0) \
-            *np.heaviside(2.0*R - rik, 0.0) \
-            *np.heaviside(2.0*R - rjk, 0.0)
-    
-    # Then the triple intersection is the same as the pair intersection
-    # between the farthest points
-    # Only works in 1D, since third point must be between
-    # the other two
-    farthest = max(max(rij, rik), rjk)
-    return theta*v2(R, farthest)
-
-# points is a cell list [np.array0, np.array1, ...]
-def compute_order_2(grid, points, box_length):
-    result = np.zeros(grid.shape)
+# Returns a list of pairs, [(r, n), ...],
+# where r is the distance between the pair,
+# and n is the number of points between
+def find_all_pairs(points, box_length, n_particles):
     n_cells = len(points)
-    
+    pairs = []
+
     for i in range(n_cells):
         curr_cell = points[i]
         n_in_cell = len(curr_cell)
@@ -61,69 +63,49 @@ def compute_order_2(grid, points, box_length):
             p = curr_cell[j]
             for k in range(j):
                 q = curr_cell[k]
-                rpq = dist(p, q, box_length)
-                result += v2(grid, rpq)
+                pairs += [dist(p, q, box_length, n_particles)]
             for q in next_cell:
-                rpq = dist(p, q, box_length)
-                result += v2(grid, rpq)
+                pairs += [dist(p, q, box_length, n_particles)]
     
-    return result/box_length
+    return pairs
 
-def compute_order_3(grid, points, box_length):
+def resolve_pair_combinatorics(grid, pair, box_length, order, max_obs_order):
+    # Rename for convenience
+    rij = pair[0]
+    n_between = pair[1]
+
+    # Compute contribution to the maximum observed order needed at
+    # each r
+    obs_order = np.heaviside(2.0*grid - rij, 0.0)*(n_between + 2)
+    temp_max_obs_order = np.fmax(max_obs_order, obs_order)
+    # https://numpy.org/doc/stable/reference/generated/numpy.put.html
+    max_obs_order[:] = temp_max_obs_order
+
+    pair_intersection = v2(grid, rij)
     result = np.zeros(grid.shape)
-    n_cells = len(points)
-
-    for i in range(n_cells):
-        curr_cell = points[i]
-        n_in_curr_cell = len(curr_cell)
-        next_cell = points[(i+1)%n_cells]
-        n_in_next_cell = len(next_cell)
-        
-        for j in range(n_in_curr_cell):
-            p_j = curr_cell[j]
-            
-            for k in range(j):
-                p_k = curr_cell[k]
-                
-                # Case 1: All in curr_cell
-                for l in range(k):
-                    p_l = curr_cell[l]
-                    rjk = dist(p_j, p_k, box_length)
-                    rjl = dist(p_j, p_l, box_length)
-                    rkl = dist(p_k, p_l, box_length)
-                    result += v3(grid, rjk, rjl, rkl)
-                
-                # Case 2: 2 in curr_cell, 1 in next_cell
-                for l in range(n_in_next_cell):
-                    p_l = next_cell[l]
-                    rjk = dist(p_j, p_k, box_length)
-                    rjl = dist(p_j, p_l, box_length)
-                    rkl = dist(p_k, p_l, box_length)
-                    result += v3(grid, rjk, rjl, rkl)
-            
-            # Case 3: 1 in curr_cell, 2 in next_cell
-            for k in range(n_in_next_cell):
-                p_k = next_cell[k]
-                
-                for l in range(k):
-                    p_l = next_cell[l]
-                    rjk = dist(p_j, p_k, box_length)
-                    rjl = dist(p_j, p_l, box_length)
-                    rkl = dist(p_k, p_l, box_length)
-                    result += v3(grid, rjk, rjl, rkl)
+    
+    for i in range(0, n_between+1):
+        if order == -1 or i + 2 <= order:
+            # https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.comb.html
+            # https://stackoverflow.com/questions/4941753/is-there-a-math-ncr-function-in-python
+            result += np.power(-1.0, i)*comb(n_between, i)*pair_intersection
 
     return result/box_length
 
-def single_configuration(grid, points, box_length, order, rho):
-    result = np.ones(grid.shape)
-    if order >= 1:
-        result -= rho*v1(grid)
-    if order >= 2:
-        result += compute_order_2(grid, points, box_length)
-    if order >= 3:
-        result -= compute_order_3(grid, points, box_length)
+def single_configuration(grid, points, box_length, order, rho, n_particles, max_obs_order):
+    result = np.ones(grid.shape) - rho*v1(grid) # First order E_V
+    pairs = find_all_pairs(points, box_length, n_particles)
+    
+    for p in pairs:
+        result += resolve_pair_combinatorics(grid, p, box_length, order, max_obs_order)
+    
     return result
 
+# Returns a cell_list, in form
+#    cell_0                       cell_1
+# [[(r0, idx0), (r1, idx1), ... ], [""], ...]
+# This allows you to keep track of both spatial location,
+# and figure out how many particles are between two particles
 def make_cell_list(points, box_length, cutoff):
     # Make sure everthing is strictly in [0.0, box_length)
     for p in points:
@@ -140,16 +122,16 @@ def make_cell_list(points, box_length, cutoff):
     # Make the cell list
     for i in range(len(cell_spec) - 1):
         cell = []
-        for p in points:
+        for j, p in enumerate(points):
             if p >= cell_spec[i] and p < cell_spec[i+1]:
-                cell += [p]
-        cell_list += [np.array(cell)]
+                cell += [(p, j)]
+        cell_list += [cell]
     
     return cell_list
 
 if __name__ == "__main__":
     # Parse command line
-    order = 2
+    order = -1
     cutoff = 1.0
     n_grid = 10
     if "-h" in sys.argv or "--help" in sys.argv:
@@ -172,8 +154,10 @@ if __name__ == "__main__":
 
     # Determine evaluation grid
     grid = np.linspace(0.0, cutoff, num=n_grid)
-    e_v = np.zeros(n_grid)
-    e_v_unc = np.zeros(n_grid)
+    e_v = np.zeros(grid.shape)
+    e_v_unc = np.zeros(grid.shape)
+    # The highest number of intersections needed to compute each r
+    max_obs_order = np.zeros(grid.shape)
 
     # Compute E_V(r) over grid for each configuration
     for n, f in enumerate(infiles):
@@ -185,11 +169,20 @@ if __name__ == "__main__":
         raw_points = np.loadtxt(f)[:,0]
         rho = float(len(raw_points))/box_length
         
+        # Sort point list
+        raw_points.sort()
         # Compute cell_list
         points = make_cell_list(raw_points, box_length, cutoff)
 
         # Compute for a single configuration
-        temp_e_v = single_configuration(grid, points, box_length, order, rho)
+        temp_e_v = single_configuration(grid,
+                                        points,
+                                        box_length,
+                                        order,
+                                        rho,
+                                        len(raw_points),
+                                        max_obs_order
+                                        )
         e_v += temp_e_v
         e_v_unc += temp_e_v*temp_e_v
 
@@ -203,5 +196,6 @@ if __name__ == "__main__":
             np.stack([
                 grid,
                 e_v,
-                e_v_unc], -1)
+                e_v_unc,
+                max_obs_order], -1)
             )
