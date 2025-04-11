@@ -1,12 +1,13 @@
 # nn_scripts
 
-Author: Timothy Middlemas
+Author: Claire Middlemas
 
 A script to compute nearest-neighbor functions and a collection
 of scripts to help test the output
 
 I heavily used Ge Zhang's C++ code and many previous Torquato
-group papers in designing this code.
+group papers in designing this code. This code was developed during my
+time at Princeton University in the Torquato Group.
 
 The script run_tests.sh will make a bunch of simple ensembles
 and run compute_nn for four different bin sizes on each, for comparison
